@@ -38,11 +38,11 @@ export interface ParseOptions {
   types?: Record<string, FieldType>;
 
   /**
-   * What to do when a cast fails.
-   * - `"throw"` (default) — throws a {@link TypeCastError}.
-   * - `"ignore"` — keeps the original value unchanged.
+   * Whether to throw a {@link TypeCastError} when a cast fails.
+   * - `true` (default) — throws on failure.
+   * - `false` — keeps the original value unchanged.
    */
-  onError?: "throw" | "ignore";
+  throwing?: boolean;
 }
 
 interface FormatSpec {
@@ -209,7 +209,7 @@ function castField(key: string, value: unknown, fieldType: FieldType): unknown {
 function applyTypes(
   metadata: Record<string, unknown>,
   types: Record<string, FieldType>,
-  onError: "throw" | "ignore"
+  throwing: boolean
 ): Record<string, unknown> {
   const result = { ...metadata };
 
@@ -221,7 +221,7 @@ function applyTypes(
     try {
       result[key] = castField(key, result[key], fieldType);
     } catch (e) {
-      if (onError === "throw") throw e;
+      if (throwing) throw e;
     }
   }
 
@@ -419,7 +419,7 @@ export function lint(content: string, format?: FrontmatterFormat): string {
  *
  * Optionally accepts a {@link ParseOptions} object to declare field types
  * (see {@link ParseOptions.types}) and control cast-failure behavior
- * (see {@link ParseOptions.onError}).
+ * (see {@link ParseOptions.throwing}).
  *
  * @example
  * ```ts
@@ -456,7 +456,7 @@ export function parse<T = Record<string, unknown>>(
     : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
 
   if (options?.types !== undefined) {
-    metadata = applyTypes(metadata, options.types, options.onError ?? "throw");
+    metadata = applyTypes(metadata, options.types, options.throwing ?? true);
   }
 
   return [metadata as T, body];

@@ -435,18 +435,18 @@ describe("parse / types", () => {
     ).toThrow(TypeCastError);
   });
 
-  it('onError "ignore" keeps original value on failed cast', () => {
+  it("throwing: false keeps original value on failed cast", () => {
     const [fm] = parse("---\nactive: maybe\n---\n", {
       types: { active: "boolean" },
-      onError: "ignore",
+      throwing: false,
     });
     expect(fm).toEqual({ active: "maybe" });
   });
 
-  it('onError "ignore" keeps original value when array type mismatches', () => {
+  it("throwing: false keeps original value when array type mismatches", () => {
     const [fm] = parse("---\ntags: hello\n---\n", {
       types: { tags: ["string"] },
-      onError: "ignore",
+      throwing: false,
     });
     expect(fm).toEqual({ tags: "hello" });
   });

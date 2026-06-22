@@ -41,6 +41,56 @@ console.log(headers.tags);  // ["news", "tech"]
 console.log(body);          // "Body content here.\n"
 ```
 
+### Parse a Markdown with Frontmatter, with typed fields
+
+By default, `parse` returns every value as-is from the raw frontmatter (a string stays a string, a number stays a number, etc.). If you need to force specific fields to a particular type — for example, a field that arrives as the string `"42"` but should be the number `42` — pass a `types` map as the second argument.
+
+**Available types:** `"string"`, `"number"`, `"boolean"`, or an array variant like `["string"]`, `["number"]`, `["boolean"]` for fields that are lists.
+
+**Boolean casting** accepts: `true`/`false`, `"true"`/`"false"`, `"yes"`/`"no"`, `1`/`0`, `"1"`/`"0"`.
+
+**On cast failure**, a `TypeCastError` is thrown by default. Pass `throwing: false` to silently keep the original value instead.
+
+```js
+import { parse } from "markdown-frontmatter-parser";
+
+const doc = `---
+title: Hello World
+count: "42"
+active: "yes"
+tags:
+  - foo
+  - bar
+scores:
+  - "10"
+  - "20"
+---
+Body content here.
+`;
+
+const [headers, body] = parse(doc, {
+  types: {
+    count:   "number",    // "42"   → 42
+    active:  "boolean",   // "yes"  → true
+    tags:    ["string"],  // already strings, no-op but explicit
+    scores:  ["number"],  // ["10", "20"] → [10, 20]
+  },
+});
+
+console.log(headers.count);   // 42
+console.log(headers.active);  // true
+console.log(headers.tags);    // ["foo", "bar"]
+console.log(headers.scores);  // [10, 20]
+
+// Keep original value when a cast fails, instead of throwing:
+const [headers2] = parse(doc, {
+  types: { count: "boolean" }, // "42" can't be cast to boolean
+  throwing: false,             // → keeps "42" as-is
+});
+
+console.log(headers2.count); // "42"
+```
+
 ### Generate Markdown and Frontmatter content from object
 
 Serialize metadata and content into a markdown string with a frontmatter header. Defaults to YAML format. A blank line is inserted between the header and the body.
