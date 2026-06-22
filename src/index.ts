@@ -281,13 +281,51 @@ function applyTypes(
 type Parser = (raw: string) => Record<string, unknown>;
 type Serializer = (metadata: Record<string, unknown>) => string;
 
+/** Custom YAML boolean type that serializes `true`/`false` as `yes`/`no`. */
+const YAML_BOOL_YES_NO_TYPE = new yaml.Type("tag:yaml.org,2002:bool", {
+  kind: "scalar",
+
+  predicate: (value) => typeof value === "boolean",
+
+  represent: (value) => (value ? "yes" : "no"),
+
+  resolve: (data) => {
+    if (typeof data !== "string") return false;
+
+    const lower = data.toLowerCase();
+
+    return lower === "true" || lower === "false" || lower === "yes" || lower === "no";
+  },
+
+  construct: (data: string) => {
+    const lower = data.toLowerCase();
+
+    return lower === "true" || lower === "yes";
+  },
+});
+
+/**
+ * YAML schema identical to the default, but with booleans serialized as `yes`/`no`
+ * instead of `true`/`false`.
+ */
+const YAML_SCHEMA_YES_NO = new yaml.Schema({
+  implicit: [
+    ...yaml.DEFAULT_SCHEMA.implicit.filter(
+      (t) => t.tag !== "tag:yaml.org,2002:bool"
+    ),
+    YAML_BOOL_YES_NO_TYPE,
+  ],
+  explicit: yaml.DEFAULT_SCHEMA.explicit,
+});
+
 const SERIALIZERS: Record<FrontmatterFormat, Serializer> = {
   json: (metadata) => JSON.stringify(metadata, null, "\t"),
 
   toml: (metadata) =>
     stringifyToml(metadata as Parameters<typeof stringifyToml>[0]).trimEnd(),
 
-  yaml: (metadata) => yaml.dump(metadata, { indent: 2 }).trimEnd(),
+  yaml: (metadata) =>
+    yaml.dump(metadata, { indent: 2, schema: YAML_SCHEMA_YES_NO }).trimEnd(),
 };
 
 const PARSERS: Record<FrontmatterFormat, Parser> = {
