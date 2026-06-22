@@ -6,7 +6,7 @@
  */
 
 import * as yaml from "js-yaml";
-import { parse as parseToml } from "smol-toml";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,7 +102,25 @@ function detectFormat(firstLine: string): FrontmatterFormat | null {
   return ALL_FORMATS.find((f) => firstLine === FORMATS[f].open) ?? null;
 }
 
+function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [
+      k.toLowerCase(),
+      v !== null && typeof v === "object" && !Array.isArray(v)
+        ? lowercaseKeys(v as Record<string, unknown>)
+        : v,
+    ])
+  );
+}
+
 type Parser = (raw: string) => Record<string, unknown>;
+type Serializer = (metadata: Record<string, unknown>) => string;
+
+const SERIALIZERS: Record<FrontmatterFormat, Serializer> = {
+  json: (metadata) => JSON.stringify(metadata, null, "\t"),
+  toml: (metadata) => stringifyToml(metadata as Parameters<typeof stringifyToml>[0]).trimEnd(),
+  yaml: (metadata) => yaml.dump(metadata, { indent: 2 }).trimEnd(),
+};
 
 const PARSERS: Record<FrontmatterFormat, Parser> = {
   json: (raw) => {
@@ -190,6 +208,70 @@ export function split(content: string): [SplitResult | null, string] {
 }
 
 /**
+ * Generates a markdown string with a frontmatter header from the given metadata and content.
+ *
+ * @param metadata - Key-value pairs to serialize as frontmatter.
+ * @param content  - The markdown body.
+ * @param format   - The frontmatter format to use (default: `"yaml"`).
+ *
+ * @example
+ * ```ts
+ * import { generate } from "markdown-frontmatter-parser";
+ *
+ * const doc = generate({ title: "Hello" }, "World\n");
+ * // ---
+ * // title: Hello
+ * // ---
+ * //
+ * // World
+ * ```
+ */
+export function generate(
+  metadata: Record<string, unknown>,
+  content: string,
+  format: FrontmatterFormat = "yaml"
+): string {
+  const serialized = SERIALIZERS[format](metadata);
+  if (format === "json") {
+    return `${serialized}\n\n${content}`;
+  }
+  const { open, close } = FORMATS[format];
+  return `${open}\n${serialized}\n${close}\n\n${content}`;
+}
+
+/**
+ * Normalizes a markdown document by parsing its frontmatter and re-serializing it
+ * in canonical form (sorted keys lowercased, consistent delimiters, double newline spacing).
+ *
+ * Returns the content unchanged when no frontmatter is detected.
+ * Passing `format` re-serializes in a different format than the source.
+ *
+ * @example
+ * ```ts
+ * import { lint } from "markdown-frontmatter-parser";
+ *
+ * const doc = `---
+ * Title: Hello
+ * ---
+ * World
+ * `;
+ *
+ * console.log(lint(doc));
+ * // ---
+ * // title: Hello
+ * // ---
+ * //
+ * // World
+ * ```
+ */
+export function lint(content: string, format?: FrontmatterFormat): string {
+  const [extracted, body] = split(content);
+  if (extracted === null) return content;
+  const metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+  return generate(metadata, body.replace(/^\n+/, ""), format ?? extracted.format);
+}
+
+/**
  * Parses frontmatter from a markdown string, returning the parsed frontmatter
  * and the body of the document.
  *
@@ -214,5 +296,5 @@ export function split(content: string): [SplitResult | null, string] {
 export function parse<T = Record<string, unknown>>(content: string): [T, string] {
   const [extracted, body] = split(content);
   if (extracted === null) return [{} as T, body];
-  return [PARSERS[extracted.format](extracted.raw) as T, body];
+  return [lowercaseKeys(PARSERS[extracted.format](extracted.raw)) as T, body];
 }

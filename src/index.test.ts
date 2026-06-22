@@ -11,6 +11,8 @@ import {
   InvalidJsonError,
   InvalidTomlError,
   InvalidYamlError,
+  generate,
+  lint,
   lineSpans,
   parse,
   split,
@@ -40,6 +42,83 @@ describe("lineSpans", () => {
     expect(spans[2].nextStart).toBe(21); // "line 3" = 6 chars, no newline
 
     expect([...lineSpans(input)][3]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// lint
+// ---------------------------------------------------------------------------
+
+describe("lint", () => {
+  it("normalizes mixed-case YAML keys and spacing", () => {
+    const input = "---\nTitle: Hello\nCOUNT: 3\n---\nBody content here.\n";
+    expect(lint(input)).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody content here.\n");
+  });
+
+  it("is idempotent", () => {
+    const input = "---\nTitle: Hello\n---\nBody content here.\n";
+    expect(lint(lint(input))).toBe(lint(input));
+  });
+
+  it("no frontmatter returns content unchanged", () => {
+    expect(lint("hello world")).toBe("hello world");
+  });
+
+  it("converts format when format override is passed", () => {
+    const input = "---\ntitle: Hello\n---\nBody.\n";
+    const out = lint(input, "toml");
+    expect(out).toBe('+++\ntitle = "Hello"\n+++\n\nBody.\n');
+  });
+
+  it("preserves detected format when no override is passed", () => {
+    const toml = '+++\ntitle = "Hello"\n+++\nBody.\n';
+    expect(lint(toml)).toBe('+++\ntitle = "Hello"\n+++\n\nBody.\n');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generate
+// ---------------------------------------------------------------------------
+
+describe("generate", () => {
+  const METADATA = { title: "Hello", count: 3 };
+  const CONTENT = "Body content here.\n";
+
+  it("defaults to YAML format", () => {
+    const out = generate(METADATA, CONTENT);
+    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody content here.\n");
+  });
+
+  it("YAML format", () => {
+    const out = generate(METADATA, CONTENT, "yaml");
+    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody content here.\n");
+  });
+
+  it("TOML format", () => {
+    const out = generate(METADATA, CONTENT, "toml");
+    expect(out).toBe('+++\ntitle = "Hello"\ncount = 3\n+++\n\nBody content here.\n');
+  });
+
+  it("JSON format", () => {
+    const out = generate(METADATA, CONTENT, "json");
+    expect(out).toBe('{\n\t"title": "Hello",\n\t"count": 3\n}\n\nBody content here.\n');
+  });
+
+  it("empty metadata", () => {
+    const out = generate({}, CONTENT);
+    expect(out).toBe("---\n{}\n---\n\nBody content here.\n");
+  });
+
+  it("empty content", () => {
+    const out = generate(METADATA, "");
+    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\n");
+  });
+
+  it("roundtrips through parse (body retains leading newline from spacing)", () => {
+    const out = generate(METADATA, CONTENT, "yaml");
+    const [fm, body] = parse(out);
+    expect(fm).toEqual(METADATA);
+    expect(body).toBe("\n" + CONTENT);
   });
 });
 
@@ -169,6 +248,11 @@ describe("parse / JSON", () => {
     const [fm] = parse(INVALID_TYPE);
     expect(fm).toEqual({ foo: 0 });
   });
+
+  it("mixed-case keys are lowercased", () => {
+    const [fm] = parse('{\n\t"Foo": 1,\n\t"BAR_Baz": { "Nested": 2 }\n}\n');
+    expect(fm).toEqual({ foo: 1, bar_baz: { nested: 2 } });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -206,6 +290,11 @@ describe("parse / TOML", () => {
   it("mismatched value type is returned as-is (no runtime type checking in TS)", () => {
     const [fm] = parse(INVALID_TYPE);
     expect(fm).toEqual({ foo: 123 });
+  });
+
+  it("mixed-case keys are lowercased", () => {
+    const [fm] = parse('+++\nFoo = 1\n[BAR_Baz]\nNested = 2\n+++\n');
+    expect(fm).toEqual({ foo: 1, bar_baz: { nested: 2 } });
   });
 });
 
@@ -245,5 +334,10 @@ describe("parse / YAML", () => {
   it("mismatched value type is returned as-is (no runtime type checking in TS)", () => {
     const [fm] = parse(INVALID_TYPE);
     expect(fm).toEqual({ foo: 123 });
+  });
+
+  it("mixed-case keys are lowercased", () => {
+    const [fm] = parse("---\nFoo: 1\nBAR_Baz:\n  Nested: 2\n---\n");
+    expect(fm).toEqual({ foo: 1, bar_baz: { nested: 2 } });
   });
 });

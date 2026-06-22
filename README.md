@@ -16,14 +16,20 @@ Alternatively, you can run `npm install markdown-frontmatter-parser --save`.
 
 ## How to use?
 
-Then, you can import `markdown-frontmatter-parser` and extract metadata:
+### Parse a Markdown with Frontmatter
+
+Extract metadata and body from a markdown document. Returns `[{}, fullContent]` when no frontmatter is found. All metadata keys are lowercased.
+
+Supports YAML (`---`), TOML (`+++`), and JSON (`{`) frontmatter.
 
 ```js
 import { parse } from "markdown-frontmatter-parser";
 
 const markdownWithFrontmatter = `---
-title = "Hello World"
-tags = ["news", "tech"]
+title: Hello World
+tags:
+  - news
+  - tech
 ---
 Body content here.
 `;
@@ -32,4 +38,66 @@ const [headers, body] = parse(markdownWithFrontmatter);
 
 console.log(headers.title); // "Hello World"
 console.log(headers.tags);  // ["news", "tech"]
+console.log(body);          // "Body content here.\n"
+```
+
+### Generate Markdown and Frontmatter content from object
+
+Serialize metadata and content into a markdown string with a frontmatter header. Defaults to YAML format. A blank line is inserted between the header and the body.
+
+```js
+import { generate } from "markdown-frontmatter-parser";
+
+const doc = generate(
+  { title: "Hello World", tags: ["news", "tech"] },
+  "Body content here.\n"
+);
+
+// ---
+// title: Hello World
+// tags:
+//   - news
+//   - tech
+// ---
+//
+// Body content here.
+
+// Pass a second format argument to use TOML or JSON instead:
+const tomlDoc = generate({ title: "Hello" }, "Body.\n", "toml");
+```
+
+### Lint a Markdown with Frontmatter (fixing it if needed)
+
+Normalize a markdown document by re-serializing its frontmatter in canonical form: keys lowercased, consistent delimiters, and a blank line between header and body. Returns the content unchanged when no frontmatter is detected.
+
+Pass a `format` argument to convert to a different frontmatter format.
+
+```js
+import { lint } from "markdown-frontmatter-parser";
+
+const messy = `---
+Title: Hello World
+TAGS: [news, tech]
+---
+Body content here.
+`;
+
+console.log(lint(messy));
+// ---
+// title: Hello World
+// tags:
+//   - news
+//   - tech
+// ---
+//
+// Body content here.
+
+// Convert YAML frontmatter to TOML:
+console.log(lint(messy, "toml"));
+// +++
+// title = "Hello World"
+// tags = ["news", "tech"]
+// +++
+//
+// Body content here.
 ```
