@@ -154,6 +154,10 @@ function detectFormat(firstLine: string): FrontmatterFormat | null {
   return ALL_FORMATS.find((f) => firstLine === FORMATS[f].open) ?? null;
 }
 
+function trimBody(body: string): string {
+  return body.trimStart().trimEnd();
+}
+
 function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [
@@ -319,7 +323,7 @@ export function split(content: string): [SplitResult | null, string] {
 
   const format = detectFormat(first.value.line);
 
-  if (format === null) return [null, trimmed];
+  if (format === null) return [null, trimBody(trimmed)];
 
   // JSON includes the opening `{`; TOML/YAML skip the opening delimiter line.
   const matterStart = format === "json" ? first.value.start : first.value.nextStart;
@@ -333,7 +337,7 @@ export function split(content: string): [SplitResult | null, string] {
 
     return [
       { format, raw: trimmed.slice(matterStart, rawEnd) },
-      trimmed.slice(span.nextStart),
+      trimBody(trimmed.slice(span.nextStart)),
     ];
   }
 
@@ -416,7 +420,7 @@ export function lint(
     metadata = applyTypes(metadata, options.types, options.throwing ?? true);
   }
 
-  return generate(metadata, body.replace(/^\n+/, ""), format ?? extracted.format);
+  return generate(metadata, body, format ?? extracted.format);
 }
 
 /**

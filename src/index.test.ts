@@ -53,7 +53,7 @@ describe("lineSpans", () => {
 describe("lint", () => {
   it("normalizes mixed-case YAML keys and spacing", () => {
     const input = "---\nTitle: Hello\nCOUNT: 3\n---\nBody content here.\n";
-    expect(lint(input)).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody content here.\n");
+    expect(lint(input)).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody content here.");
   });
 
   it("is idempotent", () => {
@@ -68,12 +68,12 @@ describe("lint", () => {
   it("converts format when format override is passed", () => {
     const input = "---\ntitle: Hello\n---\nBody.\n";
     const out = lint(input, "toml");
-    expect(out).toBe('+++\ntitle = "Hello"\n+++\n\nBody.\n');
+    expect(out).toBe('+++\ntitle = "Hello"\n+++\n\nBody.');
   });
 
   it("preserves detected format when no override is passed", () => {
     const toml = '+++\ntitle = "Hello"\n+++\nBody.\n';
-    expect(lint(toml)).toBe('+++\ntitle = "Hello"\n+++\n\nBody.\n');
+    expect(lint(toml)).toBe('+++\ntitle = "Hello"\n+++\n\nBody.');
   });
 
   it("applies type casting via options", () => {
@@ -81,13 +81,13 @@ describe("lint", () => {
     const out = lint(input, undefined, {
       types: { count: "number", active: "boolean" },
     });
-    expect(out).toBe("---\ncount: 42\nactive: true\n---\n\nBody.\n");
+    expect(out).toBe("---\ncount: 42\nactive: true\n---\n\nBody.");
   });
 
   it("applies type casting and format conversion together", () => {
     const input = '---\ncount: "7"\n---\nBody.\n';
     const out = lint(input, "toml", { types: { count: "number" } });
-    expect(out).toBe("+++\ncount = 7\n+++\n\nBody.\n");
+    expect(out).toBe("+++\ncount = 7\n+++\n\nBody.");
   });
 
   it("throws TypeCastError on failed cast by default", () => {
@@ -103,7 +103,7 @@ describe("lint", () => {
       types: { active: "boolean" },
       throwing: false,
     });
-    expect(out).toBe("---\nactive: maybe\n---\n\nBody.\n");
+    expect(out).toBe("---\nactive: maybe\n---\n\nBody.");
   });
 });
 
@@ -145,11 +145,11 @@ describe("generate", () => {
     expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\n");
   });
 
-  it("roundtrips through parse (body retains leading newline from spacing)", () => {
+  it("roundtrips through parse", () => {
     const out = generate(METADATA, CONTENT, "yaml");
     const [fm, body] = parse(out);
     expect(fm).toEqual(METADATA);
-    expect(body).toBe("\n" + CONTENT);
+    expect(body).toBe("Body content here.");
   });
 });
 
@@ -490,19 +490,19 @@ describe("messy documents", () => {
   it("leading blank lines before the opening delimiter are ignored", () => {
     const [fm, body] = parse("\n\n\n---\ntitle: Hello\n---\nBody.\n");
     expect(fm).toEqual({ title: "Hello" });
-    expect(body).toBe("Body.\n");
+    expect(body).toBe("Body.");
   });
 
   it("CRLF line endings throughout", () => {
     const [fm, body] = parse("---\r\ntitle: Hello\r\nauthor: Bob\r\n---\r\nBody.\r\n");
     expect(fm).toEqual({ title: "Hello", author: "Bob" });
-    expect(body).toBe("Body.\r\n");
+    expect(body).toBe("Body.");
   });
 
   it("mixed CRLF and LF line endings", () => {
     const [fm, body] = parse("---\r\ntitle: Hello\nauthor: Bob\r\n---\nBody.\n");
     expect(fm).toEqual({ title: "Hello", author: "Bob" });
-    expect(body).toBe("Body.\n");
+    expect(body).toBe("Body.");
   });
 
   it("ALL-CAPS keys are lowercased", () => {
@@ -516,10 +516,10 @@ describe("messy documents", () => {
     expect(fm).toEqual({ meta: { author: { name: "Bob", age: 30 } } });
   });
 
-  it("multiple blank lines between header and body", () => {
+  it("multiple blank lines between header and body are trimmed", () => {
     const [fm, body] = parse("---\ntitle: Hello\n---\n\n\n\nBody.\n");
     expect(fm).toEqual({ title: "Hello" });
-    expect(body).toBe("\n\n\nBody.\n");
+    expect(body).toBe("Body.");
   });
 
   it("body-only document with leading blank lines", () => {
@@ -536,7 +536,7 @@ describe("messy documents", () => {
   it("TOML with CRLF line endings", () => {
     const [fm, body] = parse('+++\r\ntitle = "Hello"\r\ncount = 5\r\n+++\r\nBody.\r\n');
     expect(fm).toEqual({ title: "Hello", count: 5 });
-    expect(body).toBe("Body.\r\n");
+    expect(body).toBe("Body.");
   });
 
   it("JSON with extra whitespace indentation", () => {
@@ -547,7 +547,7 @@ describe("messy documents", () => {
   it("lint normalizes a CRLF document to canonical form", () => {
     const input = "---\r\nTitle: Hello\r\nCOUNT: 3\r\n---\r\nBody.\r\n";
     const out = lint(input);
-    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody.\r\n");
+    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody.");
   });
 
   it("lint + types on a messy mixed-case document", () => {
@@ -555,6 +555,6 @@ describe("messy documents", () => {
     const out = lint(input, undefined, {
       types: { count: "number", active: "boolean" },
     });
-    expect(out).toBe("---\ntitle: Hello\ncount: 42\nactive: true\n---\n\nBody.\n");
+    expect(out).toBe("---\ntitle: Hello\ncount: 42\nactive: true\n---\n\nBody.");
   });
 });
