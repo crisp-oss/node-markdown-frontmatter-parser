@@ -36,6 +36,7 @@ export interface ParseOptions {
    * Keys are matched case-insensitively (they are lowercased before lookup).
    */
   types?: Record<string, FieldType>;
+
   /**
    * What to do when a cast fails.
    * - `"throw"` (default) — throws a {@link TypeCastError}.
@@ -51,7 +52,7 @@ interface FormatSpec {
 }
 
 const FORMATS = {
-  json: { open: "{", close: "}", displayName: "JSON" },
+  json: { open: "{",   close: "}",   displayName: "JSON" },
   toml: { open: "+++", close: "+++", displayName: "TOML" },
   yaml: { open: "---", close: "---", displayName: "YAML" },
 } as const satisfies Record<FrontmatterFormat, FormatSpec>;
@@ -113,6 +114,7 @@ export class TypeCastError extends FrontmatterError {
     const typeName = Array.isArray(expectedType)
       ? `${expectedType[0]}[]`
       : expectedType;
+
     super(
       `cannot cast key "${key}" to type "${typeName}": ${JSON.stringify(value)}`
     );
@@ -127,8 +129,10 @@ export class TypeCastError extends FrontmatterError {
 export interface LineSpan {
   /** Start position of the line content (excluding any preceding newline). */
   readonly start: number;
+
   /** Start position of the next line (i.e. after the line ending). */
   readonly nextStart: number;
+
   /** The line content, without the line ending. */
   readonly line: string;
 }
@@ -137,6 +141,7 @@ export interface LineSpan {
 export interface SplitResult {
   /** The detected frontmatter format. */
   readonly format: FrontmatterFormat;
+
   /** The raw frontmatter string (including delimiters for JSON, excluding for TOML/YAML). */
   readonly raw: string;
 }
@@ -164,14 +169,19 @@ function castScalar(value: unknown, type: ScalarType): unknown {
   switch (type) {
     case "string":
       return String(value);
+
     case "number": {
       const n = Number(value);
+
       if (Number.isNaN(n)) throw new Error("not a number");
+
       return n;
     }
+
     case "boolean":
       if (value === true  || value === 1 || value === "true"  || value === "yes" || value === "1") return true;
       if (value === false || value === 0 || value === "false" || value === "no"  || value === "0") return false;
+
       throw new Error("not a boolean");
   }
 }
@@ -179,6 +189,7 @@ function castScalar(value: unknown, type: ScalarType): unknown {
 function castField(key: string, value: unknown, fieldType: FieldType): unknown {
   if (Array.isArray(fieldType)) {
     if (!Array.isArray(value)) throw new TypeCastError(key, value, fieldType);
+
     return value.map((item) => {
       try {
         return castScalar(item, fieldType[0]);
@@ -187,6 +198,7 @@ function castField(key: string, value: unknown, fieldType: FieldType): unknown {
       }
     });
   }
+
   try {
     return castScalar(value, fieldType);
   } catch {
@@ -200,15 +212,19 @@ function applyTypes(
   onError: "throw" | "ignore"
 ): Record<string, unknown> {
   const result = { ...metadata };
+
   for (const [rawKey, fieldType] of Object.entries(types)) {
     const key = rawKey.toLowerCase();
+
     if (!(key in result)) continue;
+
     try {
       result[key] = castField(key, result[key], fieldType);
     } catch (e) {
       if (onError === "throw") throw e;
     }
   }
+
   return result;
 }
 
@@ -217,7 +233,10 @@ type Serializer = (metadata: Record<string, unknown>) => string;
 
 const SERIALIZERS: Record<FrontmatterFormat, Serializer> = {
   json: (metadata) => JSON.stringify(metadata, null, "\t"),
-  toml: (metadata) => stringifyToml(metadata as Parameters<typeof stringifyToml>[0]).trimEnd(),
+
+  toml: (metadata) =>
+    stringifyToml(metadata as Parameters<typeof stringifyToml>[0]).trimEnd(),
+
   yaml: (metadata) => yaml.dump(metadata, { indent: 2 }).trimEnd(),
 };
 
@@ -229,6 +248,7 @@ const PARSERS: Record<FrontmatterFormat, Parser> = {
       throw new InvalidJsonError(e);
     }
   },
+
   toml: (raw) => {
     try {
       return parseToml(raw) as Record<string, unknown>;
@@ -236,14 +256,18 @@ const PARSERS: Record<FrontmatterFormat, Parser> = {
       throw new InvalidTomlError(e);
     }
   },
+
   yaml: (raw) => {
     let result: unknown;
+
     try {
       result = yaml.load(raw);
     } catch (e) {
       throw new InvalidYamlError(e);
     }
+
     if (result === null || result === undefined) return {};
+
     return result as Record<string, unknown>;
   },
 };
@@ -255,20 +279,26 @@ const PARSERS: Record<FrontmatterFormat, Parser> = {
 /** Iterates over lines in a string, yielding each line with its span. Handles both CRLF and LF. */
 export function* lineSpans(s: string): Generator<LineSpan> {
   let pos = 0;
+
   while (pos < s.length) {
     const start = pos;
     let i = start;
+
     while (i < s.length && s[i] !== "\n" && s[i] !== "\r") {
       i++;
     }
+
     const lineEnd = i;
+
     if (s[i] === "\r") {
       i++;
       if (s[i] === "\n") i++;
     } else if (s[i] === "\n") {
       i++;
     }
+
     pos = i;
+
     yield { start, nextStart: i, line: s.slice(start, lineEnd) };
   }
 }
@@ -284,9 +314,11 @@ export function split(content: string): [SplitResult | null, string] {
   const iter = lineSpans(trimmed);
 
   const first = iter.next();
+
   if (first.done) return [null, trimmed];
 
   const format = detectFormat(first.value.line);
+
   if (format === null) return [null, trimmed];
 
   // JSON includes the opening `{`; TOML/YAML skip the opening delimiter line.
@@ -295,8 +327,10 @@ export function split(content: string): [SplitResult | null, string] {
 
   for (const span of iter) {
     if (span.line !== close) continue;
+
     // JSON includes the closing `}` line; TOML/YAML exclude it.
     const rawEnd = format === "json" ? span.nextStart : span.start;
+
     return [
       { format, raw: trimmed.slice(matterStart, rawEnd) },
       trimmed.slice(span.nextStart),
@@ -331,10 +365,13 @@ export function generate(
   format: FrontmatterFormat = "yaml"
 ): string {
   const serialized = SERIALIZERS[format](metadata);
+
   if (format === "json") {
     return `${serialized}\n\n${content}`;
   }
+
   const { open, close } = FORMATS[format];
+
   return `${open}\n${serialized}\n${close}\n\n${content}`;
 }
 
@@ -365,8 +402,11 @@ export function generate(
  */
 export function lint(content: string, format?: FrontmatterFormat): string {
   const [extracted, body] = split(content);
+
   if (extracted === null) return content;
+
   const metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+
   return generate(metadata, body.replace(/^\n+/, ""), format ?? extracted.format);
 }
 
@@ -410,11 +450,14 @@ export function parse<T = Record<string, unknown>>(
   options?: ParseOptions
 ): [T, string] {
   const [extracted, body] = split(content);
+
   let metadata: Record<string, unknown> = extracted === null
     ? {}
     : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+
   if (options?.types !== undefined) {
     metadata = applyTypes(metadata, options.types, options.onError ?? "throw");
   }
+
   return [metadata as T, body];
 }
