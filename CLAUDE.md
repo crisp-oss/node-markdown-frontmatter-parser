@@ -18,6 +18,10 @@ src/index.test.ts  # all tests
 dist/              # build output (gitignored)
 ```
 
+## Rules
+
+- After every code change, run `npm t` and ensure all tests pass before considering the task done.
+
 ## Key facts
 
 - **Entry point**: `src/index.ts` — exports `parse`, `split`, `lineSpans`, error classes, and types.

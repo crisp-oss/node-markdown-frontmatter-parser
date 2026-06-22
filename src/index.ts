@@ -8,6 +8,10 @@
 import * as yaml from "js-yaml";
 import { parse as parseToml } from "smol-toml";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 /** The format of the frontmatter. */
 export type FrontmatterFormat = "json" | "toml" | "yaml";
 
@@ -24,6 +28,10 @@ const FORMATS = {
 } as const satisfies Record<FrontmatterFormat, FormatSpec>;
 
 const ALL_FORMATS = Object.keys(FORMATS) as readonly FrontmatterFormat[];
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
 
 /** Base class for all frontmatter errors. */
 export class FrontmatterError extends Error {}
@@ -64,6 +72,10 @@ export class InvalidYamlError extends FrontmatterError {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Interfaces
+// ---------------------------------------------------------------------------
+
 /** A line with its character-position span within the source string. */
 export interface LineSpan {
   /** Start position of the line content (excluding any preceding newline). */
@@ -73,6 +85,55 @@ export interface LineSpan {
   /** The line content, without the line ending. */
   readonly line: string;
 }
+
+/** The raw frontmatter extracted by {@link split}. */
+export interface SplitResult {
+  /** The detected frontmatter format. */
+  readonly format: FrontmatterFormat;
+  /** The raw frontmatter string (including delimiters for JSON, excluding for TOML/YAML). */
+  readonly raw: string;
+}
+
+// ---------------------------------------------------------------------------
+// Internals
+// ---------------------------------------------------------------------------
+
+function detectFormat(firstLine: string): FrontmatterFormat | null {
+  return ALL_FORMATS.find((f) => firstLine === FORMATS[f].open) ?? null;
+}
+
+type Parser = (raw: string) => Record<string, unknown>;
+
+const PARSERS: Record<FrontmatterFormat, Parser> = {
+  json: (raw) => {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch (e) {
+      throw new InvalidJsonError(e);
+    }
+  },
+  toml: (raw) => {
+    try {
+      return parseToml(raw) as Record<string, unknown>;
+    } catch (e) {
+      throw new InvalidTomlError(e);
+    }
+  },
+  yaml: (raw) => {
+    let result: unknown;
+    try {
+      result = yaml.load(raw);
+    } catch (e) {
+      throw new InvalidYamlError(e);
+    }
+    if (result === null || result === undefined) return {};
+    return result as Record<string, unknown>;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 /** Iterates over lines in a string, yielding each line with its span. Handles both CRLF and LF. */
 export function* lineSpans(s: string): Generator<LineSpan> {
@@ -93,18 +154,6 @@ export function* lineSpans(s: string): Generator<LineSpan> {
     pos = i;
     yield { start, nextStart: i, line: s.slice(start, lineEnd) };
   }
-}
-
-/** The raw frontmatter extracted by {@link split}. */
-export interface SplitResult {
-  /** The detected frontmatter format. */
-  readonly format: FrontmatterFormat;
-  /** The raw frontmatter string (including delimiters for JSON, excluding for TOML/YAML). */
-  readonly raw: string;
-}
-
-function detectFormat(firstLine: string): FrontmatterFormat | null {
-  return ALL_FORMATS.find((f) => firstLine === FORMATS[f].open) ?? null;
 }
 
 /**
@@ -139,35 +188,6 @@ export function split(content: string): [SplitResult | null, string] {
 
   throw new AbsentClosingDelimiterError(format);
 }
-
-type Parser = (raw: string) => Record<string, unknown>;
-
-const PARSERS: Record<FrontmatterFormat, Parser> = {
-  json: (raw) => {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch (e) {
-      throw new InvalidJsonError(e);
-    }
-  },
-  toml: (raw) => {
-    try {
-      return parseToml(raw) as Record<string, unknown>;
-    } catch (e) {
-      throw new InvalidTomlError(e);
-    }
-  },
-  yaml: (raw) => {
-    let result: unknown;
-    try {
-      result = yaml.load(raw);
-    } catch (e) {
-      throw new InvalidYamlError(e);
-    }
-    if (result === null || result === undefined) return {};
-    return result as Record<string, unknown>;
-  },
-};
 
 /**
  * Parses frontmatter from a markdown string, returning the parsed frontmatter
