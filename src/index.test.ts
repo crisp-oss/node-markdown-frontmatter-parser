@@ -154,6 +154,45 @@ describe("generate", () => {
 });
 
 // ---------------------------------------------------------------------------
+// generate() — YAML boolean serialization
+// ---------------------------------------------------------------------------
+
+describe("generate / YAML boolean serialization", () => {
+  it("serializes JS boolean true/false as yes/no", () => {
+    const out = generate({ active: true, disabled: false }, "Body.");
+    expect(out).toBe("---\nactive: yes\ndisabled: no\n---\n\nBody.");
+  });
+
+  it("serializes boolean values inside an array as yes/no", () => {
+    const out = generate({ flags: [true, false, true] }, "Body.");
+    expect(out).toBe("---\nflags:\n  - yes\n  - no\n  - yes\n---\n\nBody.");
+  });
+
+  it("lint converts YAML native true/false to yes/no", () => {
+    // YAML 1.2: `true`/`false` are parsed as JS booleans by js-yaml
+    const input = "---\nactive: true\ndisabled: false\n---\nBody.\n";
+    expect(lint(input)).toBe("---\nactive: yes\ndisabled: no\n---\n\nBody.");
+  });
+
+  it("lint + type cast converts YAML yes/no strings to yes/no output", () => {
+    // YAML 1.2: `yes`/`no` (unquoted) are parsed as strings by js-yaml, not booleans
+    const input = "---\nactive: yes\ndisabled: no\n---\nBody.\n";
+    const out = lint(input, undefined, {
+      types: { active: "boolean", disabled: "boolean" },
+    });
+    expect(out).toBe("---\nactive: yes\ndisabled: no\n---\n\nBody.");
+  });
+
+  it("lint + type cast converts YAML 1/0 numbers to yes/no output", () => {
+    const input = "---\nactive: 1\ndisabled: 0\n---\nBody.\n";
+    const out = lint(input, undefined, {
+      types: { active: "boolean", disabled: "boolean" },
+    });
+    expect(out).toBe("---\nactive: yes\ndisabled: no\n---\n\nBody.");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // split()
 // ---------------------------------------------------------------------------
 
