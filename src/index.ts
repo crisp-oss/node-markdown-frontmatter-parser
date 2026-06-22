@@ -381,6 +381,7 @@ export function generate(
  *
  * Returns the content unchanged when no frontmatter is detected.
  * Passing `format` re-serializes in a different format than the source.
+ * Passing `options` applies the same type casting as {@link parse}.
  *
  * @example
  * ```ts
@@ -400,12 +401,20 @@ export function generate(
  * // World
  * ```
  */
-export function lint(content: string, format?: FrontmatterFormat): string {
+export function lint(
+  content: string,
+  format?: FrontmatterFormat,
+  options?: ParseOptions
+): string {
   const [extracted, body] = split(content);
 
   if (extracted === null) return content;
 
-  const metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+  let metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+
+  if (options?.types !== undefined) {
+    metadata = applyTypes(metadata, options.types, options.throwing ?? true);
+  }
 
   return generate(metadata, body.replace(/^\n+/, ""), format ?? extracted.format);
 }

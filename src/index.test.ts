@@ -75,6 +75,36 @@ describe("lint", () => {
     const toml = '+++\ntitle = "Hello"\n+++\nBody.\n';
     expect(lint(toml)).toBe('+++\ntitle = "Hello"\n+++\n\nBody.\n');
   });
+
+  it("applies type casting via options", () => {
+    const input = '---\ncount: "42"\nactive: "yes"\n---\nBody.\n';
+    const out = lint(input, undefined, {
+      types: { count: "number", active: "boolean" },
+    });
+    expect(out).toBe("---\ncount: 42\nactive: true\n---\n\nBody.\n");
+  });
+
+  it("applies type casting and format conversion together", () => {
+    const input = '---\ncount: "7"\n---\nBody.\n';
+    const out = lint(input, "toml", { types: { count: "number" } });
+    expect(out).toBe("+++\ncount = 7\n+++\n\nBody.\n");
+  });
+
+  it("throws TypeCastError on failed cast by default", () => {
+    const input = "---\nactive: maybe\n---\nBody.\n";
+    expect(() =>
+      lint(input, undefined, { types: { active: "boolean" } })
+    ).toThrow(TypeCastError);
+  });
+
+  it("throwing: false keeps original value on failed cast", () => {
+    const input = "---\nactive: maybe\n---\nBody.\n";
+    const out = lint(input, undefined, {
+      types: { active: "boolean" },
+      throwing: false,
+    });
+    expect(out).toBe("---\nactive: maybe\n---\n\nBody.\n");
+  });
 });
 
 // ---------------------------------------------------------------------------
