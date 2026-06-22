@@ -16,18 +16,18 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 export type FrontmatterFormat = "json" | "toml" | "yaml";
 
 /** A primitive type name used in {@link ParseOptions} field type declarations. */
-export type ScalarType = "boolean" | "number" | "string";
+export type FrontmatterScalarType = "boolean" | "number" | "string";
 
 /**
  * A field type used in {@link ParseOptions}.
- * Use a plain `ScalarType` for scalar fields, or a single-element tuple for arrays.
+ * Use a plain `FrontmatterScalarType` for scalar fields, or a single-element tuple for arrays.
  *
  * @example
  * ```ts
  * { active: "boolean", count: "number", tags: ["string"] }
  * ```
  */
-export type FieldType = ScalarType | [ScalarType];
+export type FrontmatterFieldType = FrontmatterScalarType | [FrontmatterScalarType];
 
 /** Options accepted by {@link parse}. */
 export interface ParseOptions {
@@ -35,7 +35,7 @@ export interface ParseOptions {
    * Per-key type declarations. Each value is cast to the declared type after parsing.
    * Keys are matched case-insensitively (they are lowercased before lookup).
    */
-  types?: Record<string, FieldType>;
+  types?: Record<string, FrontmatterFieldType>;
 
   /**
    * Whether to throw a {@link TypeCastError} when a cast fails.
@@ -45,7 +45,7 @@ export interface ParseOptions {
   throwing?: boolean;
 }
 
-interface FormatSpec {
+interface Formatter {
   readonly open: string;
   readonly close: string;
   readonly displayName: string;
@@ -55,7 +55,7 @@ const FORMATS = {
   json: { open: "{",   close: "}",   displayName: "JSON" },
   toml: { open: "+++", close: "+++", displayName: "TOML" },
   yaml: { open: "---", close: "---", displayName: "YAML" },
-} as const satisfies Record<FrontmatterFormat, FormatSpec>;
+} as const satisfies Record<FrontmatterFormat, Formatter>;
 
 const ALL_FORMATS = Object.keys(FORMATS) as readonly FrontmatterFormat[];
 
@@ -109,7 +109,7 @@ export class TypeCastError extends FrontmatterError {
   constructor(
     readonly key: string,
     readonly value: unknown,
-    readonly expectedType: FieldType
+    readonly expectedType: FrontmatterFieldType
   ) {
     const typeName = Array.isArray(expectedType)
       ? `${expectedType[0]}[]`
@@ -165,7 +165,7 @@ function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
-function castScalar(value: unknown, type: ScalarType): unknown {
+function castScalar(value: unknown, type: FrontmatterScalarType): unknown {
   switch (type) {
     case "string":
       return String(value);
@@ -186,7 +186,7 @@ function castScalar(value: unknown, type: ScalarType): unknown {
   }
 }
 
-function castField(key: string, value: unknown, fieldType: FieldType): unknown {
+function castField(key: string, value: unknown, fieldType: FrontmatterFieldType): unknown {
   if (Array.isArray(fieldType)) {
     if (!Array.isArray(value)) throw new TypeCastError(key, value, fieldType);
 
@@ -208,7 +208,7 @@ function castField(key: string, value: unknown, fieldType: FieldType): unknown {
 
 function applyTypes(
   metadata: Record<string, unknown>,
-  types: Record<string, FieldType>,
+  types: Record<string, FrontmatterFieldType>,
   throwing: boolean
 ): Record<string, unknown> {
   const result = { ...metadata };
