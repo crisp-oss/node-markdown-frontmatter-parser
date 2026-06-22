@@ -11,6 +11,7 @@ import {
   InvalidJsonError,
   InvalidTomlError,
   InvalidYamlError,
+  TypeCastError,
   generate,
   lint,
   lineSpans,
@@ -339,5 +340,114 @@ describe("parse / YAML", () => {
   it("mixed-case keys are lowercased", () => {
     const [fm] = parse("---\nFoo: 1\nBAR_Baz:\n  Nested: 2\n---\n");
     expect(fm).toEqual({ foo: 1, bar_baz: { nested: 2 } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parse — types option
+// ---------------------------------------------------------------------------
+
+describe("parse / types", () => {
+  it("casts string to number", () => {
+    const [fm] = parse('---\ncount: "42"\n---\n', { types: { count: "number" } });
+    expect(fm).toEqual({ count: 42 });
+  });
+
+  it("casts number to string", () => {
+    const [fm] = parse("---\ncount: 42\n---\n", { types: { count: "string" } });
+    expect(fm).toEqual({ count: "42" });
+  });
+
+  it('casts "yes"/"no" strings to boolean', () => {
+    const [fm] = parse('---\na: "yes"\nb: "no"\n---\n', {
+      types: { a: "boolean", b: "boolean" },
+    });
+    expect(fm).toEqual({ a: true, b: false });
+  });
+
+  it('casts "true"/"false" strings to boolean', () => {
+    const [fm] = parse('---\na: "true"\nb: "false"\n---\n', {
+      types: { a: "boolean", b: "boolean" },
+    });
+    expect(fm).toEqual({ a: true, b: false });
+  });
+
+  it('casts "1"/"0" strings to boolean', () => {
+    const [fm] = parse('---\na: "1"\nb: "0"\n---\n', {
+      types: { a: "boolean", b: "boolean" },
+    });
+    expect(fm).toEqual({ a: true, b: false });
+  });
+
+  it("casts 1/0 numbers to boolean", () => {
+    const [fm] = parse("{\n\t\"a\": 1,\n\t\"b\": 0\n}\n", {
+      types: { a: "boolean", b: "boolean" },
+    });
+    expect(fm).toEqual({ a: true, b: false });
+  });
+
+  it("casts array elements to number", () => {
+    const [fm] = parse('---\nids:\n  - "1"\n  - "2"\n  - "3"\n---\n', {
+      types: { ids: ["number"] },
+    });
+    expect(fm).toEqual({ ids: [1, 2, 3] });
+  });
+
+  it("casts array elements to string", () => {
+    const [fm] = parse("---\nscores:\n  - 10\n  - 20\n---\n", {
+      types: { scores: ["string"] },
+    });
+    expect(fm).toEqual({ scores: ["10", "20"] });
+  });
+
+  it("casts array elements to boolean", () => {
+    const [fm] = parse('---\nflags:\n  - "yes"\n  - "no"\n---\n', {
+      types: { flags: ["boolean"] },
+    });
+    expect(fm).toEqual({ flags: [true, false] });
+  });
+
+  it("types keys are matched case-insensitively", () => {
+    const [fm] = parse('---\nCount: "5"\n---\n', { types: { COUNT: "number" } });
+    expect(fm).toEqual({ count: 5 });
+  });
+
+  it("unknown types keys are silently ignored", () => {
+    const [fm] = parse("---\nfoo: bar\n---\n", { types: { unknown: "number" } });
+    expect(fm).toEqual({ foo: "bar" });
+  });
+
+  it("throws TypeCastError on failed cast by default", () => {
+    expect(() =>
+      parse("---\nactive: maybe\n---\n", { types: { active: "boolean" } })
+    ).toThrow(TypeCastError);
+  });
+
+  it("throws TypeCastError with correct key and value", () => {
+    expect(() =>
+      parse("---\ncount: abc\n---\n", { types: { count: "number" } })
+    ).toThrow(/cannot cast key "count" to type "number": "abc"/);
+  });
+
+  it("throws TypeCastError when array type applied to non-array value", () => {
+    expect(() =>
+      parse("---\ntags: hello\n---\n", { types: { tags: ["string"] } })
+    ).toThrow(TypeCastError);
+  });
+
+  it('onError "ignore" keeps original value on failed cast', () => {
+    const [fm] = parse("---\nactive: maybe\n---\n", {
+      types: { active: "boolean" },
+      onError: "ignore",
+    });
+    expect(fm).toEqual({ active: "maybe" });
+  });
+
+  it('onError "ignore" keeps original value when array type mismatches', () => {
+    const [fm] = parse("---\ntags: hello\n---\n", {
+      types: { tags: ["string"] },
+      onError: "ignore",
+    });
+    expect(fm).toEqual({ tags: "hello" });
   });
 });

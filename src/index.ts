@@ -15,6 +15,35 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 /** The format of the frontmatter. */
 export type FrontmatterFormat = "json" | "toml" | "yaml";
 
+/** A primitive type name used in {@link ParseOptions} field type declarations. */
+export type ScalarType = "boolean" | "number" | "string";
+
+/**
+ * A field type used in {@link ParseOptions}.
+ * Use a plain `ScalarType` for scalar fields, or a single-element tuple for arrays.
+ *
+ * @example
+ * ```ts
+ * { active: "boolean", count: "number", tags: ["string"] }
+ * ```
+ */
+export type FieldType = ScalarType | [ScalarType];
+
+/** Options accepted by {@link parse}. */
+export interface ParseOptions {
+  /**
+   * Per-key type declarations. Each value is cast to the declared type after parsing.
+   * Keys are matched case-insensitively (they are lowercased before lookup).
+   */
+  types?: Record<string, FieldType>;
+  /**
+   * What to do when a cast fails.
+   * - `"throw"` (default) — throws a {@link TypeCastError}.
+   * - `"ignore"` — keeps the original value unchanged.
+   */
+  onError?: "throw" | "ignore";
+}
+
 interface FormatSpec {
   readonly open: string;
   readonly close: string;
@@ -72,6 +101,24 @@ export class InvalidYamlError extends FrontmatterError {
   }
 }
 
+/** Thrown when a value cannot be cast to its declared {@link FieldType}. */
+export class TypeCastError extends FrontmatterError {
+  override readonly name = "TypeCastError";
+
+  constructor(
+    readonly key: string,
+    readonly value: unknown,
+    readonly expectedType: FieldType
+  ) {
+    const typeName = Array.isArray(expectedType)
+      ? `${expectedType[0]}[]`
+      : expectedType;
+    super(
+      `cannot cast key "${key}" to type "${typeName}": ${JSON.stringify(value)}`
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Interfaces
 // ---------------------------------------------------------------------------
@@ -111,6 +158,58 @@ function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
         : v,
     ])
   );
+}
+
+function castScalar(value: unknown, type: ScalarType): unknown {
+  switch (type) {
+    case "string":
+      return String(value);
+    case "number": {
+      const n = Number(value);
+      if (Number.isNaN(n)) throw new Error("not a number");
+      return n;
+    }
+    case "boolean":
+      if (value === true  || value === 1 || value === "true"  || value === "yes" || value === "1") return true;
+      if (value === false || value === 0 || value === "false" || value === "no"  || value === "0") return false;
+      throw new Error("not a boolean");
+  }
+}
+
+function castField(key: string, value: unknown, fieldType: FieldType): unknown {
+  if (Array.isArray(fieldType)) {
+    if (!Array.isArray(value)) throw new TypeCastError(key, value, fieldType);
+    return value.map((item) => {
+      try {
+        return castScalar(item, fieldType[0]);
+      } catch {
+        throw new TypeCastError(key, item, fieldType);
+      }
+    });
+  }
+  try {
+    return castScalar(value, fieldType);
+  } catch {
+    throw new TypeCastError(key, value, fieldType);
+  }
+}
+
+function applyTypes(
+  metadata: Record<string, unknown>,
+  types: Record<string, FieldType>,
+  onError: "throw" | "ignore"
+): Record<string, unknown> {
+  const result = { ...metadata };
+  for (const [rawKey, fieldType] of Object.entries(types)) {
+    const key = rawKey.toLowerCase();
+    if (!(key in result)) continue;
+    try {
+      result[key] = castField(key, result[key], fieldType);
+    } catch (e) {
+      if (onError === "throw") throw e;
+    }
+  }
+  return result;
 }
 
 type Parser = (raw: string) => Record<string, unknown>;
@@ -241,7 +340,7 @@ export function generate(
 
 /**
  * Normalizes a markdown document by parsing its frontmatter and re-serializing it
- * in canonical form (sorted keys lowercased, consistent delimiters, double newline spacing).
+ * in canonical form (keys lowercased, consistent delimiters, double newline spacing).
  *
  * Returns the content unchanged when no frontmatter is detected.
  * Passing `format` re-serializes in a different format than the source.
@@ -278,23 +377,44 @@ export function lint(content: string, format?: FrontmatterFormat): string {
  * When the document has no frontmatter, an empty object is returned as the
  * frontmatter and the full content is returned as the body.
  *
+ * Optionally accepts a {@link ParseOptions} object to declare field types
+ * (see {@link ParseOptions.types}) and control cast-failure behavior
+ * (see {@link ParseOptions.onError}).
+ *
  * @example
  * ```ts
  * import { parse } from "markdown-frontmatter-parser";
  *
  * const doc = `---
  * title: Hello
+ * count: "42"
+ * active: "yes"
+ * tags:
+ *   - foo
+ *   - bar
  * ---
  * World
  * `;
  *
- * const [frontmatter, body] = parse(doc);
- * console.log(frontmatter.title); // "Hello"
- * console.log(body);              // "World\n"
+ * const [frontmatter, body] = parse(doc, {
+ *   types: { count: "number", active: "boolean", tags: ["string"] },
+ * });
+ * console.log(frontmatter.count);  // 42
+ * console.log(frontmatter.active); // true
+ * console.log(frontmatter.tags);   // ["foo", "bar"]
+ * console.log(body);               // "World\n"
  * ```
  */
-export function parse<T = Record<string, unknown>>(content: string): [T, string] {
+export function parse<T = Record<string, unknown>>(
+  content: string,
+  options?: ParseOptions
+): [T, string] {
   const [extracted, body] = split(content);
-  if (extracted === null) return [{} as T, body];
-  return [lowercaseKeys(PARSERS[extracted.format](extracted.raw)) as T, body];
+  let metadata: Record<string, unknown> = extracted === null
+    ? {}
+    : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+  if (options?.types !== undefined) {
+    metadata = applyTypes(metadata, options.types, options.onError ?? "throw");
+  }
+  return [metadata as T, body];
 }
