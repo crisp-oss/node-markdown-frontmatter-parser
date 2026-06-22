@@ -1,6 +1,6 @@
 # node-markdown-frontmatter-parser
 
-[![Test and Build](https://github.com/crisp-oss/markdown-frontmatter-parser/actions/workflows/test.yml/badge.svg)](https://github.com/crisp-oss/markdown-frontmatter-parser/actions/workflows/test.yml) [![Build and Release](https://github.com/crisp-oss/markdown-frontmatter-parser/actions/workflows/build.yml/badge.svg)](https://github.com/crisp-oss/markdown-frontmatter-parser/actions/workflows/build.yml) [![NPM](https://img.shields.io/npm/v/markdown-frontmatter-parser.svg)](https://www.npmjs.com/package/markdown-frontmatter-parser) [![Downloads](https://img.shields.io/npm/dt/markdown-frontmatter-parser.svg)](https://www.npmjs.com/package/markdown-frontmatter-parser)
+[![Test and Build](https://github.com/crisp-oss/node-markdown-frontmatter-parser/actions/workflows/test.yml/badge.svg)](https://github.com/crisp-oss/node-markdown-frontmatter-parser/actions/workflows/test.yml) [![Build and Release](https://github.com/crisp-oss/node-markdown-frontmatter-parser/actions/workflows/build.yml/badge.svg)](https://github.com/crisp-oss/node-markdown-frontmatter-parser/actions/workflows/build.yml) [![NPM](https://img.shields.io/npm/v/markdown-frontmatter-parser.svg)](https://www.npmjs.com/package/markdown-frontmatter-parser) [![Downloads](https://img.shields.io/npm/dt/markdown-frontmatter-parser.svg)](https://www.npmjs.com/package/markdown-frontmatter-parser)
 
 **Markdown Frontmatter parser for Node. Can be used to extract metadata as key-value in Frontmatter headers in your Markdown files.**
 
