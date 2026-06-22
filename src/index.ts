@@ -150,14 +150,33 @@ export interface SplitResult {
 // Internals
 // ---------------------------------------------------------------------------
 
+/**
+ * Returns the frontmatter format whose opening delimiter matches `firstLine`, or `null`.
+ *
+ * @param firstLine - The first non-empty line of the document.
+ * @returns The matching {@link FrontmatterFormat}, or `null` if no delimiter matched.
+ */
 function detectFormat(firstLine: string): FrontmatterFormat | null {
   return ALL_FORMATS.find((f) => firstLine === FORMATS[f].open) ?? null;
 }
 
+/**
+ * Strips leading and trailing whitespace from an extracted markdown body.
+ *
+ * @param body - The raw body string returned by the frontmatter splitter.
+ * @returns The body with leading and trailing whitespace removed.
+ */
 function trimBody(body: string): string {
   return body.trimStart().trimEnd();
 }
 
+/**
+ * Recursively lowercases all keys in a plain object.
+ * Arrays and scalar values are passed through unchanged.
+ *
+ * @param obj - The object whose keys should be lowercased.
+ * @returns A new object with all keys (and nested keys) lowercased.
+ */
 function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => [
@@ -169,6 +188,15 @@ function lowercaseKeys(obj: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
+/**
+ * Casts a single scalar value to the given type.
+ * Throws a plain `Error` on failure — the caller is responsible for wrapping it into a {@link TypeCastError}.
+ *
+ * @param value - The value to cast.
+ * @param type  - The target scalar type.
+ * @returns The cast value.
+ * @throws `Error` if the value cannot be cast to the requested type.
+ */
 function castScalar(value: unknown, type: FrontmatterScalarType): unknown {
   switch (type) {
     case "string":
@@ -190,6 +218,15 @@ function castScalar(value: unknown, type: FrontmatterScalarType): unknown {
   }
 }
 
+/**
+ * Casts a value to the given `fieldType`, handling both scalar and array field types.
+ *
+ * @param key       - The metadata key name, used in error messages.
+ * @param value     - The value to cast.
+ * @param fieldType - The target field type (scalar or array-of-scalar).
+ * @returns The cast value.
+ * @throws {@link TypeCastError} if the value cannot be cast to the requested type.
+ */
 function castField(key: string, value: unknown, fieldType: FrontmatterFieldType): unknown {
   if (Array.isArray(fieldType)) {
     if (!Array.isArray(value)) throw new TypeCastError(key, value, fieldType);
@@ -210,6 +247,15 @@ function castField(key: string, value: unknown, fieldType: FrontmatterFieldType)
   }
 }
 
+/**
+ * Applies per-key type casts from `types` to `metadata`.
+ * On cast failure, throws if `throwing` is `true`, otherwise keeps the original value unchanged.
+ *
+ * @param metadata  - The already-parsed frontmatter object.
+ * @param types     - Map of key names to their declared {@link FrontmatterFieldType}.
+ * @param throwing  - Whether to throw a {@link TypeCastError} on failure (`true`) or silently ignore it (`false`).
+ * @returns A new object with the requested fields cast to their declared types.
+ */
 function applyTypes(
   metadata: Record<string, unknown>,
   types: Record<string, FrontmatterFieldType>,
@@ -280,7 +326,12 @@ const PARSERS: Record<FrontmatterFormat, Parser> = {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Iterates over lines in a string, yielding each line with its span. Handles both CRLF and LF. */
+/**
+ * Iterates over lines in a string, yielding each line with its span. Handles both CRLF and LF.
+ *
+ * @param s - The source string to iterate over.
+ * @returns A generator of {@link LineSpan} objects, one per line.
+ */
 export function* lineSpans(s: string): Generator<LineSpan> {
   let pos = 0;
 
@@ -310,8 +361,9 @@ export function* lineSpans(s: string): Generator<LineSpan> {
 /**
  * Splits a document into raw frontmatter and body without parsing the frontmatter.
  *
- * Returns `[null, body]` when no frontmatter is found.
- * Throws {@link AbsentClosingDelimiterError} when an opening delimiter has no closing match.
+ * @param content - The full markdown document string.
+ * @returns A tuple of `[SplitResult | null, body]`. The first element is `null` when no frontmatter is found.
+ * @throws {@link AbsentClosingDelimiterError} when an opening delimiter has no closing match.
  */
 export function split(content: string): [SplitResult | null, string] {
   const trimmed = content.trimStart();
@@ -350,6 +402,7 @@ export function split(content: string): [SplitResult | null, string] {
  * @param metadata - Key-value pairs to serialize as frontmatter.
  * @param content  - The markdown body.
  * @param format   - The frontmatter format to use (default: `"yaml"`).
+ * @returns A markdown string with the frontmatter header followed by a blank line and the body.
  *
  * @example
  * ```ts
@@ -383,9 +436,10 @@ export function generate(
  * Normalizes a markdown document by parsing its frontmatter and re-serializing it
  * in canonical form (keys lowercased, consistent delimiters, double newline spacing).
  *
- * Returns the content unchanged when no frontmatter is detected.
- * Passing `format` re-serializes in a different format than the source.
- * Passing `options` applies the same type casting as {@link parse}.
+ * @param content - The full markdown document string.
+ * @param format  - Target frontmatter format. Defaults to the format detected in `content`.
+ * @param options - Optional type casting options, same as {@link parse}.
+ * @returns The normalized markdown string, or the original `content` unchanged if no frontmatter was detected.
  *
  * @example
  * ```ts
@@ -430,9 +484,12 @@ export function lint(
  * When the document has no frontmatter, an empty object is returned as the
  * frontmatter and the full content is returned as the body.
  *
- * Optionally accepts a {@link ParseOptions} object to declare field types
- * (see {@link ParseOptions.types}) and control cast-failure behavior
- * (see {@link ParseOptions.throwing}).
+ * @param content - The full markdown document string.
+ * @param options - Optional type casting and error-handling options.
+ * @returns A tuple of `[frontmatter, body]`. `frontmatter` is cast to `T` (no runtime validation).
+ * @throws {@link AbsentClosingDelimiterError} if an opening delimiter has no closing match.
+ * @throws {@link InvalidJsonError} | {@link InvalidTomlError} | {@link InvalidYamlError} on malformed frontmatter.
+ * @throws {@link TypeCastError} if a declared type cast fails and `options.throwing` is `true` (default).
  *
  * @example
  * ```ts
