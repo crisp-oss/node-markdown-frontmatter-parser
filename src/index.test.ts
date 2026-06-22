@@ -481,3 +481,80 @@ describe("parse / types", () => {
     expect(fm).toEqual({ tags: "hello" });
   });
 });
+
+// ---------------------------------------------------------------------------
+// messy real-world documents
+// ---------------------------------------------------------------------------
+
+describe("messy documents", () => {
+  it("leading blank lines before the opening delimiter are ignored", () => {
+    const [fm, body] = parse("\n\n\n---\ntitle: Hello\n---\nBody.\n");
+    expect(fm).toEqual({ title: "Hello" });
+    expect(body).toBe("Body.\n");
+  });
+
+  it("CRLF line endings throughout", () => {
+    const [fm, body] = parse("---\r\ntitle: Hello\r\nauthor: Bob\r\n---\r\nBody.\r\n");
+    expect(fm).toEqual({ title: "Hello", author: "Bob" });
+    expect(body).toBe("Body.\r\n");
+  });
+
+  it("mixed CRLF and LF line endings", () => {
+    const [fm, body] = parse("---\r\ntitle: Hello\nauthor: Bob\r\n---\nBody.\n");
+    expect(fm).toEqual({ title: "Hello", author: "Bob" });
+    expect(body).toBe("Body.\n");
+  });
+
+  it("ALL-CAPS keys are lowercased", () => {
+    const [fm] = parse("---\nTITLE: Hello\nAUTHOR: Bob\n---\n");
+    expect(fm).toEqual({ title: "Hello", author: "Bob" });
+  });
+
+  it("deeply nested YAML with mixed-case keys", () => {
+    const input = "---\nMeta:\n  Author:\n    Name: Bob\n    Age: 30\n---\n";
+    const [fm] = parse(input);
+    expect(fm).toEqual({ meta: { author: { name: "Bob", age: 30 } } });
+  });
+
+  it("multiple blank lines between header and body", () => {
+    const [fm, body] = parse("---\ntitle: Hello\n---\n\n\n\nBody.\n");
+    expect(fm).toEqual({ title: "Hello" });
+    expect(body).toBe("\n\n\nBody.\n");
+  });
+
+  it("body-only document with leading blank lines", () => {
+    const [fm, body] = parse("\n\nhello world");
+    expect(fm).toEqual({});
+    expect(body).toBe("hello world");
+  });
+
+  it("YAML with unicode values", () => {
+    const [fm] = parse("---\ntitle: 日本語タイトル\nauthor: François\n---\n");
+    expect(fm).toEqual({ title: "日本語タイトル", author: "François" });
+  });
+
+  it("TOML with CRLF line endings", () => {
+    const [fm, body] = parse('+++\r\ntitle = "Hello"\r\ncount = 5\r\n+++\r\nBody.\r\n');
+    expect(fm).toEqual({ title: "Hello", count: 5 });
+    expect(body).toBe("Body.\r\n");
+  });
+
+  it("JSON with extra whitespace indentation", () => {
+    const [fm] = parse('{\n    "title": "Hello",\n    "count": 3\n}\n');
+    expect(fm).toEqual({ title: "Hello", count: 3 });
+  });
+
+  it("lint normalizes a CRLF document to canonical form", () => {
+    const input = "---\r\nTitle: Hello\r\nCOUNT: 3\r\n---\r\nBody.\r\n";
+    const out = lint(input);
+    expect(out).toBe("---\ntitle: Hello\ncount: 3\n---\n\nBody.\r\n");
+  });
+
+  it("lint + types on a messy mixed-case document", () => {
+    const input = "---\nTITLE: Hello\nCOUNT: \"42\"\nACTIVE: \"yes\"\n---\nBody.\n";
+    const out = lint(input, undefined, {
+      types: { count: "number", active: "boolean" },
+    });
+    expect(out).toBe("---\ntitle: Hello\ncount: 42\nactive: true\n---\n\nBody.\n");
+  });
+});
