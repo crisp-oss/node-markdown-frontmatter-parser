@@ -304,18 +304,24 @@ const YAML_BOOL_YES_NO_TYPE = new yaml.Type("tag:yaml.org,2002:bool", {
   },
 });
 
+/** @types/js-yaml does not expose `implicit`/`explicit` on Schema or `tag` on Type, but they exist at runtime. */
+interface YamlSchemaInternal {
+  implicit: Array<yaml.Type & { tag: string }>;
+  explicit: Array<yaml.Type & { tag: string }>;
+}
+
 /**
  * YAML schema identical to the default, but with booleans serialized as `yes`/`no`
  * instead of `true`/`false`.
  */
 const YAML_SCHEMA_YES_NO = new yaml.Schema({
   implicit: [
-    ...yaml.DEFAULT_SCHEMA.implicit.filter(
+    ...(yaml.DEFAULT_SCHEMA as unknown as YamlSchemaInternal).implicit.filter(
       (t) => t.tag !== "tag:yaml.org,2002:bool"
     ),
     YAML_BOOL_YES_NO_TYPE,
   ],
-  explicit: yaml.DEFAULT_SCHEMA.explicit,
+  explicit: (yaml.DEFAULT_SCHEMA as unknown as YamlSchemaInternal).explicit,
 });
 
 const SERIALIZERS: Record<FrontmatterFormat, Serializer> = {

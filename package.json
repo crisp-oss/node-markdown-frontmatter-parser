@@ -12,7 +12,14 @@
     "type": "git",
     "url": "https://github.com/crisp-oss/node-markdown-frontmatter-parser"
   },
-  "keywords": ["markdown", "frontmatter", "yaml", "toml", "json", "parser"],
+  "keywords": [
+    "markdown",
+    "frontmatter",
+    "yaml",
+    "toml",
+    "json",
+    "parser"
+  ],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -27,7 +34,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "prepublishOnly": "npm run build",
