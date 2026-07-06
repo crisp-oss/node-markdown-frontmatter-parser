@@ -91,6 +91,36 @@ const [headers2] = parse(doc, {
 console.log(headers2.count); // "42"
 ```
 
+### Split a Markdown document and extract its metadata separately
+
+If you need more control than `parse`, you can `split` the document into its raw frontmatter and body first, then run `extractMetadata` on the split result. This is what `parse` does internally, but doing it in two steps lets you inspect the detected format or the raw frontmatter string before parsing it.
+
+`extractMetadata` accepts the same options as `parse` (`types`, `strictTypes`), and returns an empty object when passed `null` (no frontmatter detected).
+
+```js
+import { split, extractMetadata } from "markdown-frontmatter-parser";
+
+const doc = `---
+title: Hello World
+count: "42"
+---
+Body content here.
+`;
+
+const [extracted, body] = split(doc);
+
+console.log(extracted.format); // "yaml"
+console.log(extracted.raw);    // 'title: Hello World\ncount: "42"\n'
+console.log(body);             // "Body content here."
+
+const metadata = extractMetadata(extracted, {
+  types: { count: "number" },
+});
+
+console.log(metadata.title); // "Hello World"
+console.log(metadata.count); // 42
+```
+
 ### Generate Markdown and Frontmatter content from object
 
 Serialize metadata and content into a markdown string with a frontmatter header. Defaults to YAML format. A blank line is inserted between the header and the body.

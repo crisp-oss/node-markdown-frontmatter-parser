@@ -477,6 +477,33 @@ export function generate(
 }
 
 /**
+ * Parses the raw frontmatter extracted by {@link split} into a metadata object,
+ * lowercasing all keys and applying optional type casts.
+ *
+ * When `extracted` is `null` (no frontmatter), an empty object is returned.
+ *
+ * @param extracted - The {@link SplitResult} returned by {@link split}, or `null`.
+ * @param options   - Optional type casting and error-handling options.
+ * @returns The parsed metadata object, cast to `T` (no runtime validation).
+ * @throws {@link InvalidJsonError} | {@link InvalidTomlError} | {@link InvalidYamlError} on malformed frontmatter.
+ * @throws {@link TypeCastError} if a declared type cast fails and `options.strictTypes` is `true` (default).
+ */
+export function extractMetadata<T = Record<string, unknown>>(
+  extracted: SplitResult | null,
+  options?: ParseOptions
+): T {
+  let result: Record<string, unknown> = extracted === null
+    ? {}
+    : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
+
+  if (options?.types !== undefined) {
+    result = applyTypes(result, options.types, options.strictTypes ?? true);
+  }
+
+  return result as T;
+}
+
+/**
  * Normalizes a markdown document by parsing its frontmatter and re-serializing it
  * in canonical form (keys lowercased, consistent delimiters, double newline spacing).
  *
@@ -512,13 +539,7 @@ export function lint(
 
   if (extracted === null) return content;
 
-  let metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
-
-  if (options?.types !== undefined) {
-    metadata = applyTypes(metadata, options.types, options.strictTypes ?? true);
-  }
-
-  return generate(metadata, body, format ?? extracted.format);
+  return generate(extractMetadata(extracted, options), body, format ?? extracted.format);
 }
 
 /**
@@ -565,13 +586,5 @@ export function parse<T = Record<string, unknown>>(
 ): [T, string] {
   const [extracted, body] = split(content);
 
-  let metadata: Record<string, unknown> = extracted === null
-    ? {}
-    : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
-
-  if (options?.types !== undefined) {
-    metadata = applyTypes(metadata, options.types, options.strictTypes ?? true);
-  }
-
-  return [metadata as T, body];
+  return [extractMetadata<T>(extracted, options), body];
 }
