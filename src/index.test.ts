@@ -97,11 +97,11 @@ describe("lint", () => {
     ).toThrow(TypeCastError);
   });
 
-  it("throwing: false keeps original value on failed cast", () => {
+  it("strictTypes: false keeps original value on failed cast", () => {
     const input = "---\nactive: maybe\n---\nBody.\n";
     const out = lint(input, undefined, {
       types: { active: "boolean" },
-      throwing: false,
+      strictTypes: false,
     });
     expect(out).toBe("---\nactive: maybe\n---\n\nBody.");
   });
@@ -504,18 +504,18 @@ describe("parse / types", () => {
     ).toThrow(TypeCastError);
   });
 
-  it("throwing: false keeps original value on failed cast", () => {
+  it("strictTypes: false keeps original value on failed cast", () => {
     const [fm] = parse("---\nactive: maybe\n---\n", {
       types: { active: "boolean" },
-      throwing: false,
+      strictTypes: false,
     });
     expect(fm).toEqual({ active: "maybe" });
   });
 
-  it("throwing: false keeps original value when array type mismatches", () => {
+  it("strictTypes: false keeps original value when array type mismatches", () => {
     const [fm] = parse("---\ntags: hello\n---\n", {
       types: { tags: ["string"] },
-      throwing: false,
+      strictTypes: false,
     });
     expect(fm).toEqual({ tags: "hello" });
   });

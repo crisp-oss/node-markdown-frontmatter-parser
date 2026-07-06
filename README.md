@@ -49,7 +49,7 @@ By default, `parse` returns every value as-is from the raw frontmatter (a string
 
 **Boolean casting** accepts: `true`/`false`, `"true"`/`"false"`, `"yes"`/`"no"`, `1`/`0`, `"1"`/`"0"`.
 
-**On cast failure**, a `TypeCastError` is thrown by default. Pass `throwing: false` to silently keep the original value instead.
+**On cast failure**, a `TypeCastError` is thrown by default. Pass `strictTypes: false` to silently keep the original value instead.
 
 ```js
 import { parse } from "markdown-frontmatter-parser";
@@ -85,7 +85,7 @@ console.log(headers.scores);  // [10, 20]
 // Keep original value when a cast fails, instead of throwing:
 const [headers2] = parse(doc, {
   types: { count: "boolean" }, // "42" can't be cast to boolean
-  throwing: false,             // → keeps "42" as-is
+  strictTypes: false,          // → keeps "42" as-is
 });
 
 console.log(headers2.count); // "42"

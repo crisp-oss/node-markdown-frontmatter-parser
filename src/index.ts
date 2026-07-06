@@ -42,7 +42,7 @@ export interface ParseOptions {
    * - `true` (default) — throws on failure.
    * - `false` — keeps the original value unchanged.
    */
-  throwing?: boolean;
+  strictTypes?: boolean;
 }
 
 interface Formatter {
@@ -249,17 +249,17 @@ function castField(key: string, value: unknown, fieldType: FrontmatterFieldType)
 
 /**
  * Applies per-key type casts from `types` to `metadata`.
- * On cast failure, throws if `throwing` is `true`, otherwise keeps the original value unchanged.
+ * On cast failure, throws if `strictTypes` is `true`, otherwise keeps the original value unchanged.
  *
  * @param metadata  - The already-parsed frontmatter object.
  * @param types     - Map of key names to their declared {@link FrontmatterFieldType}.
- * @param throwing  - Whether to throw a {@link TypeCastError} on failure (`true`) or silently ignore it (`false`).
+ * @param strictTypes - Whether to throw a {@link TypeCastError} on failure (`true`) or silently ignore it (`false`).
  * @returns A new object with the requested fields cast to their declared types.
  */
 function applyTypes(
   metadata: Record<string, unknown>,
   types: Record<string, FrontmatterFieldType>,
-  throwing: boolean
+  strictTypes: boolean
 ): Record<string, unknown> {
   const result = { ...metadata };
 
@@ -271,7 +271,7 @@ function applyTypes(
     try {
       result[key] = castField(key, result[key], fieldType);
     } catch (e) {
-      if (throwing) throw e;
+      if (strictTypes) throw e;
     }
   }
 
@@ -515,7 +515,7 @@ export function lint(
   let metadata = lowercaseKeys(PARSERS[extracted.format](extracted.raw));
 
   if (options?.types !== undefined) {
-    metadata = applyTypes(metadata, options.types, options.throwing ?? true);
+    metadata = applyTypes(metadata, options.types, options.strictTypes ?? true);
   }
 
   return generate(metadata, body, format ?? extracted.format);
@@ -533,7 +533,7 @@ export function lint(
  * @returns A tuple of `[frontmatter, body]`. `frontmatter` is cast to `T` (no runtime validation).
  * @throws {@link AbsentClosingDelimiterError} if an opening delimiter has no closing match.
  * @throws {@link InvalidJsonError} | {@link InvalidTomlError} | {@link InvalidYamlError} on malformed frontmatter.
- * @throws {@link TypeCastError} if a declared type cast fails and `options.throwing` is `true` (default).
+ * @throws {@link TypeCastError} if a declared type cast fails and `options.strictTypes` is `true` (default).
  *
  * @example
  * ```ts
@@ -570,7 +570,7 @@ export function parse<T = Record<string, unknown>>(
     : lowercaseKeys(PARSERS[extracted.format](extracted.raw));
 
   if (options?.types !== undefined) {
-    metadata = applyTypes(metadata, options.types, options.throwing ?? true);
+    metadata = applyTypes(metadata, options.types, options.strictTypes ?? true);
   }
 
   return [metadata as T, body];
