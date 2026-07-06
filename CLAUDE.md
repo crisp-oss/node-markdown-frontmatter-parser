@@ -24,7 +24,7 @@ dist/              # build output (gitignored)
 
 ## Key facts
 
-- **Entry point**: `src/index.ts` — exports `parse`, `split`, `lineSpans`, error classes, and types.
+- **Entry point**: `src/index.ts` — exports `parse`, `split`, `extractMetadata`, `generate`, `lint`, `lineSpans`, error classes, and types.
 - **Formats**: JSON (`{…}`), TOML (`+++…+++`), YAML (`---…---`). All always enabled — no feature flags.
 - **No frontmatter**: `parse()` returns `[{}, fullContent]` instead of throwing.
 - **Errors**: `AbsentClosingDelimiterError`, `InvalidJsonError`, `InvalidTomlError`, `InvalidYamlError` — all extend `FrontmatterError`.
