@@ -24,7 +24,9 @@ dist/              # build output (gitignored)
 
 ## Key facts
 
-- **Entry point**: `src/index.ts` — exports `parse`, `split`, `extractMetadata`, `generate`, `lint`, `lineSpans`, error classes, and types.
+- **Entry point**: `src/index.ts` — exports `parse`, `split`, `extractMetadata`, `generate`, `generateMetadata`, `lint`, `lineSpans`, error classes, and types.
+- **`generate` vs `generateMetadata`**: `generate` emits a markdown doc with a frontmatter header; `generateMetadata` emits a pure-format dump (no delimiters, no body).
+- **Symmetry**: `parse` ↔ `generate` (whole documents), `extractMetadata` ↔ `generateMetadata` (metadata objects only).
 - **Formats**: JSON (`{…}`), TOML (`+++…+++`), YAML (`---…---`). All always enabled — no feature flags.
 - **No frontmatter**: `parse()` returns `[{}, fullContent]` instead of throwing.
 - **Errors**: `AbsentClosingDelimiterError`, `InvalidJsonError`, `InvalidTomlError`, `InvalidYamlError` — all extend `FrontmatterError`.

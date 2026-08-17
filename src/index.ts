@@ -477,6 +477,54 @@ export function generate(
 }
 
 /**
+ * Serializes a metadata object into a pure document of the given format.
+ *
+ * Unlike {@link generate}, the output is **not** frontmatter: no delimiters (`---`, `+++`) are
+ * emitted and no markdown body is appended. The result is a standalone, pure-format dump — valid
+ * YAML, TOML or JSON on its own — suitable for writing straight to a `.yaml`, `.toml` or `.json`
+ * file.
+ *
+ * This is the sibling of {@link extractMetadata}: where `extractMetadata` reads a metadata object
+ * out of a document, `generateMetadata` writes one back out. The same pairing exists one level up,
+ * between {@link parse} and {@link generate}, which operate on whole markdown documents.
+ *
+ * @param metadata - Key-value pairs to serialize.
+ * @param format   - The output format to use (default: `"yaml"`).
+ * @returns The serialized metadata, terminated by a single trailing newline (empty string when the
+ *          serialization is empty).
+ * @see {@link extractMetadata} for the reverse operation.
+ * @see {@link generate} to emit a markdown document with a frontmatter header instead.
+ *
+ * @example
+ * ```ts
+ * import { generateMetadata } from "markdown-frontmatter-parser";
+ *
+ * generateMetadata({ title: "Hello", tags: ["news"] });
+ * // title: Hello
+ * // tags:
+ * //   - news
+ *
+ * generateMetadata({ title: "Hello" }, "toml");
+ * // title = "Hello"
+ *
+ * generateMetadata({ title: "Hello" }, "json");
+ * // {
+ * //   "title": "Hello"
+ * // }
+ * ```
+ */
+export function generateMetadata(
+  metadata: Record<string, unknown>,
+  format: FrontmatterFormat = "yaml"
+): string {
+  const serialized = SERIALIZERS[format](metadata);
+
+  if (serialized === "") return "";
+
+  return `${serialized}\n`;
+}
+
+/**
  * Parses the raw frontmatter extracted by {@link split} into a metadata object,
  * lowercasing all keys and applying optional type casts.
  *
@@ -487,6 +535,7 @@ export function generate(
  * @returns The parsed metadata object, cast to `T` (no runtime validation).
  * @throws {@link InvalidJsonError} | {@link InvalidTomlError} | {@link InvalidYamlError} on malformed frontmatter.
  * @throws {@link TypeCastError} if a declared type cast fails and `options.strictTypes` is `true` (default).
+ * @see {@link generateMetadata} for the reverse operation.
  */
 export function extractMetadata<T = Record<string, unknown>>(
   extracted: SplitResult | null,

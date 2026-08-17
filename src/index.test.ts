@@ -13,6 +13,7 @@ import {
   InvalidYamlError,
   TypeCastError,
   generate,
+  generateMetadata,
   lint,
   lineSpans,
   parse,
@@ -150,6 +151,56 @@ describe("generate", () => {
     const [fm, body] = parse(out);
     expect(fm).toEqual(METADATA);
     expect(body).toBe("Body content here.");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateMetadata()
+// ---------------------------------------------------------------------------
+
+describe("generateMetadata", () => {
+  const METADATA = { title: "Hello", count: 3 };
+
+  it("defaults to YAML format", () => {
+    expect(generateMetadata(METADATA)).toBe("title: Hello\ncount: 3\n");
+  });
+
+  it("YAML format", () => {
+    expect(generateMetadata(METADATA, "yaml")).toBe("title: Hello\ncount: 3\n");
+  });
+
+  it("TOML format", () => {
+    expect(generateMetadata(METADATA, "toml")).toBe('title = "Hello"\ncount = 3\n');
+  });
+
+  it("JSON format", () => {
+    expect(generateMetadata(METADATA, "json")).toBe('{\n\t"title": "Hello",\n\t"count": 3\n}\n');
+  });
+
+  it("emits no frontmatter delimiters", () => {
+    for (const format of ["yaml", "toml", "json"] as const) {
+      const out = generateMetadata(METADATA, format);
+      expect(out.startsWith("---")).toBe(false);
+      expect(out.startsWith("+++")).toBe(false);
+    }
+  });
+
+  it("empty metadata", () => {
+    expect(generateMetadata({}, "yaml")).toBe("{}\n");
+    expect(generateMetadata({}, "json")).toBe("{}\n");
+    expect(generateMetadata({}, "toml")).toBe("");
+  });
+
+  it("serializes JS booleans as yes/no in YAML", () => {
+    expect(generateMetadata({ active: true, disabled: false })).toBe("active: yes\ndisabled: no\n");
+  });
+
+  it("matches the frontmatter body produced by generate", () => {
+    for (const format of ["yaml", "toml"] as const) {
+      const doc = generate(METADATA, "Body.\n", format);
+      const raw = generateMetadata(METADATA, format);
+      expect(doc).toContain(raw);
+    }
   });
 });
 

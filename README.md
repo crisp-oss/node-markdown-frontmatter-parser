@@ -146,6 +146,30 @@ const doc = generate(
 const tomlDoc = generate({ title: "Hello" }, "Body.\n", "toml");
 ```
 
+### Generate pure YAML, TOML or JSON content from object
+
+Serialize a metadata object into a standalone document of the target format. Unlike `generate()`, the output is **not** frontmatter: there are no `---` or `+++` delimiters and no markdown body, so it can be written straight to a `.yaml`, `.toml` or `.json` file. Defaults to YAML format.
+
+`generateMetadata()` is the sibling of `extractMetadata()` — one reads a metadata object out of a document, the other writes one back out. The same pairing exists one level up, between `parse()` and `generate()`, which work on whole markdown documents.
+
+```js
+import { generateMetadata } from "markdown-frontmatter-parser";
+
+console.log(generateMetadata({ title: "Hello World", tags: ["news", "tech"] }));
+// title: Hello World
+// tags:
+//   - news
+//   - tech
+
+console.log(generateMetadata({ title: "Hello World" }, "toml"));
+// title = "Hello World"
+
+console.log(generateMetadata({ title: "Hello World" }, "json"));
+// {
+//   "title": "Hello World"
+// }
+```
+
 ### Lint a Markdown with Frontmatter (fixing it if needed)
 
 Normalize a markdown document by re-serializing its frontmatter in canonical form: keys lowercased, consistent delimiters, and a blank line between header and body. Returns the content unchanged when no frontmatter is detected.
